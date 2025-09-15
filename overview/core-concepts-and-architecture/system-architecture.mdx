@@ -1,0 +1,133 @@
+---
+title: "System Architecture Diagram"
+description: "A visual overview (mermaid diagram) of how the Hints extension integrates with GORM and interacts with user queries. Clarifies data flow and touchpoints for extension developers and advanced users."
+---
+
+# System Architecture Diagram for Hints Integration with GORM
+
+## Visualizing How Hints Extend GORM's Query Processing
+
+This page provides a clear, visual overview of how the Hints extension integrates within the GORM ecosystem, detailing the flow of user queries and the touchpoints where hints are injected. It serves as a crucial guide for extension developers and advanced users who want to understand the internal interactions and data flow that occur when using Hints with GORM.
+
+---
+
+## Why This Matters
+
+Understanding the integration model empowers you to:
+
+- Seamlessly extend and customize query execution through optimizer, index, and comment hints.
+- Debug or optimize your hint usage by knowing exactly where and how hints apply.
+- Build new features or troubleshoot advanced workflows by visualizing GORM's internal clause handling.
+
+
+## Core Integration Flow
+
+At its core, the Hints extension acts by hooking into GORM's statement building process. When you add hints to a query, here is what happens:
+
+1. **User Query Initiation**: You start with a GORM query—for example, a `.Find()`, `.Update()` or `.Joins()` call.
+2. **Hints Injection via Clauses**: The Hints extension adds optimizer or index hints as specialized SQL comment clauses.
+3. **Clause Modification**: Hints interact closely with GORM's `Clause` system, attaching themselves before, after, or inline with key SQL segments like `SELECT`, `FROM`, `WHERE`, or `UPDATE`.
+4. **SQL Compilation**: GORM compiles the SQL statement, incorporating the hint comments directly into the query text at the precise injection points.
+5. **SQL Execution**: The database receives the finalized inquiry, enhanced by your hint, guiding optimization or index usage.
+
+This integration preserves the familiar GORM API while enabling powerful, granular SQL control.
+
+
+## Key Components and Their Interactions
+
+```mermaid
+flowchart TD
+
+  UserQuery["User Query via GORM API"] --> AddHints["Add Hints Clauses"]
+
+  subgraph GORM Statement Construction
+    direction TB
+    AddHints --> ModifyClauses["Modify GORM Clauses"]
+    ModifyClauses --> CompileSQL["Compile SQL Statement"]
+  end
+
+  CompileSQL --> DB["Database Engine"]
+
+  subgraph Hints Extension
+    direction TB
+    AddHints --> HintsData["Hints Data Structures"]
+    HintsData --> ModifyClauses
+  end
+
+  %% Details inside ModifyClauses
+  ModifyClauses -.->|Before/After/Inline injection| SelectClause["SELECT Clause"]
+  ModifyClauses -.->|Before/After/Inline injection| FromClause["FROM Clause"]
+  ModifyClauses -.->|Before/After/Inline injection| UpdateClause["UPDATE Clause"]
+  ModifyClauses -.->|Before/After/Inline injection| WhereClause["WHERE Clause"]
+
+  classDef highlight fill:#f9f,stroke:#333,stroke-width:2px;
+  AddHints,ModifyClauses,HintsData SelectClause,FromClause,UpdateClause,WhereClause,CompileSQL DB UserQuery class highlight
+
+```
+
+
+## How Hints Modify the Query
+
+Hints are inserted using GORM's `Clause` system, which structures SQL into modular segments. The Hints extension implements interfaces that let it inject custom expressions:
+
+- **Before, After, or Inline**: Hints can be configured to appear before a clause (e.g., before `SELECT`), after the clause keyword, or after the clause content.
+- **Multiple Clauses Support**: Hints apply to key SQL clauses such as `SELECT`, `FROM`, and `UPDATE`.
+- **Mergeable Content**: Multiple hints merge their contents cleanly to form compound optimizer hints.
+
+This flexibility allows precise placement of hints like optimizer commands, index usage directives, or developer comments.
+
+
+## Real-World Example: Optimizer and Index Hints in Action
+
+Imagine you want to influence MySQL's query optimizer to use a certain index and add a performance hint.
+
+1. You write your GORM query and attach hints:
+
+```go
+DB.Clauses(hints.New("MAX_EXECUTION_TIME(100)"), hints.UseIndex("idx_user_name")).Find(&User{})
+```
+
+2. Internally, this adds modifiers to the `SELECT` and `FROM` clauses respectively.
+3. GORM compiles this into SQL:
+
+```sql
+SELECT /*+ MAX_EXECUTION_TIME(100) */ * FROM `users` USE INDEX (`idx_user_name`)
+```
+
+4. The database applies the hint directives, optimizing execution accordingly.
+
+
+## Practical Tips for Extension Developers and Advanced Users
+
+- **Consider Injection Points**: Use `before`, `after`, and inline hint placements depending on your hint type and database SQL syntax.
+- **Sequence Matters**: When chaining multiple hints, their merge order will affect the composed SQL hint comment.
+- **Clause Interaction**: Understand GORM's clause hierarchy to target your hints accurately, especially when using complex joins or updates.
+- **Testing Output SQL**: Use GORM's dry run mode during development to inspect generated SQL and ensure hints are placed as expected.
+
+
+## Troubleshooting Common Issues
+
+<AccordionGroup title="Common Pitfalls When Using Hints">
+<Accordion title="Hints Not Appearing in Generated SQL">
+Verify that your hint clause names match exactly the GORM clause names (`SELECT`, `UPDATE`, etc.). Also ensure hints are applied before the query execution with `.Clauses()`.
+</Accordion>
+<Accordion title="Conflicting or Overlapping Hints">
+When multiple hints target the same clause, they merge. However, avoid contradictory hints (e.g., conflicting index hints) that can confuse the optimizer.
+</Accordion>
+<Accordion title="Misplaced Hint Comments Causing SQL Errors">
+Certain databases require hints in specific locations. Adjust your hint's `before` or `after` flags to control positioning precisely.
+</Accordion>
+</AccordionGroup>
+
+
+## Next Steps
+
+- Explore the [Core Concepts and Terminology](/overview/core-concepts-and-architecture/domain-terminology) page to deepen understanding of key terms.
+- Review the [Integration with GORM](/overview/core-concepts-and-architecture/integration-model) page for more detailed architectural insights.
+- Start building your own hint-enhanced queries with the [Getting Started](Getting-Started) section.
+
+
+---
+
+*For source code and detailed examples, see the [hints.go](https://github.com/go-gorm/hints/blob/main/hints.go) and [index_hint.go](https://github.com/go-gorm/hints/blob/main/index_hint.go) files in the repository.*
+
