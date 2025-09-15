@@ -1,0 +1,165 @@
+---
+title: "Target Audience and Use Cases"
+description: "Describes the types of users (GORM developers seeking fine-tuned query performance or behavior) and the core application scenarios: performance tuning, index control, and advanced SQL management."
+---
+
+# Target Audience and Use Cases
+
+## Unlocking Fine-Tuned SQL Performance in GORM
+
+When working with GORM, ensuring optimal SQL query performance and precise query behavior is often a top priority. This page guides you through understanding who benefits most from the GORM Hints extension and the core scenarios where it brings significant value. Whether you're aiming to optimize complex queries, control index usage, or integrate advanced SQL hints seamlessly, this page is your compass.
+
+---
+
+## Who Should Use GORM Hints?
+
+GORM Hints is tailored specifically for developers who:
+
+- Invest deeply in database performance tuning and need granular control over SQL query execution.
+- Require explicit control over index usage to influence query planner decisions.
+- Need to embed SQL optimizer hints or comments directly into queries for specialized database optimizations.
+
+If you are building applications where every millisecond in query execution counts, or where backend SQL must adhere to strict performance patterns, GORM Hints empowers you to inject that precision without breaking GORM's fluent query interface.
+
+---
+
+## Core Application Scenarios
+
+### Performance Tuning
+The chief advantage of the Hints extension is enabling developers to add optimizer hints easily into their GORM queries. This can dramatically impact how the SQL optimizer plans and executes a query, potentially avoiding costly full table scans or suboptimal join methods.
+
+Imagine a large user database where a query picks the wrong index due to data distribution changes. By embedding an optimizer hint directly in the GORM query, you steer the database engine to use the ideal index, reducing query time and resource consumption.
+
+### Index Control
+GORM Hints supports direct control over index usage with clauses like `USE INDEX`, `FORCE INDEX`, and `IGNORE INDEX`. This capability helps:
+
+- Ensure queries use the most efficient indexes for JOIN operations or WHERE clauses.
+- Override default index selection when complex query plans lead to subpar outcomes.
+- Optimize order and group operations to utilize specific indexes, improving sorting and aggregation speeds.
+
+For example, you might force the use of specific indexes on a join table to accelerate multi-table queries, precisely targeting the bottleneck in your application.
+
+### Advanced SQL Management
+Beyond simple hints, the extension enables adding custom SQL comments before, after, or within SQL statements. This is particularly useful for:
+
+- Annotating queries for backend analysis or logging.
+- Integrating with database tools or monitoring solutions that parse SQL comments to adjust behavior.
+- Embedding vendor-specific optimizer hints not natively exposed by GORM.
+
+This capability makes GORM Hints a powerful tool for developers needing nuanced control that extends beyond normal ORM boundaries.
+
+---
+
+## How This Page Fits Into Your Journey
+
+This documentation builds on the foundational explanation of what GORM Hints provides. After understanding the extension's purpose and capabilities, you'll find this page critical in:
+
+- Identifying whether the tools are right for your team or project.
+- Aligning specific use cases with your performance and maintenance goals.
+- Preparing to dive into feature-specific guides where practical examples illustrate implementation patterns.
+
+Use this as your decision-making guide before exploring the more technical core concepts and API references.
+
+---
+
+## Practical Examples of Use Cases
+
+### Scenario 1: Improving Query Performance on Large Datasets
+
+As a developer maintaining an application with heavy analytics, you notice some queries slow down considerably during peak times. Using hints, you force the database to prefer a particular index, resulting in:
+
+- Faster query response time.
+- Reduced CPU load on your database server.
+- Consistent execution plans across environments.
+
+```go
+DB.Clauses(hints.ForceIndex("idx_user_active")).Find(&User{})
+// SQL: SELECT * FROM `users` FORCE INDEX (`idx_user_active`)
+```
+
+### Scenario 2: Enforcing Join Optimization
+
+You manage a multi-table report where the join strategy chosen by the optimizer is suboptimal. Inserting a join-specific index hint makes the difference:
+
+```go
+DB.Clauses(hints.ForceIndex("idx_orders_user", "idx_orders_date").ForJoin()).Joins("User").Find(&Order{})
+// SQL: SELECT * FROM `orders` FORCE INDEX FOR JOIN (`idx_orders_user`,`idx_orders_date`) LEFT JOIN `users` ...
+```
+
+### Scenario 3: Annotating Queries for Diagnostic Purposes
+
+Adding comments to queries helps your DevOps teams to track and analyze query behavior for different application modules without changing the query logic.
+
+```go
+DB.Clauses(hints.CommentBefore("select", "reporting-module")).Find(&Report{})
+// SQL: /*reporting-module*/ SELECT * FROM `reports`
+```
+
+---
+
+## Best Practices and Tips
+
+- **Start Small:** Use hints only when necessary. Overusing index or optimizer hints can make your queries brittle in the face of schema or data changes.
+- **Test Thoroughly:** Always validate query performance before and after applying hints.
+- **Combine Judiciously:** GORM Hints supports chaining multiple hints; use this feature to tailor SQL to your exact needs internally.
+
+---
+
+## Ready to Integrate GORM Hints?
+
+If you identify as a developer or team focused on squeezing maximum query efficiency or requiring advanced SQL-level control, the next step is to explore the feature overview and get started guides to see how to apply these capabilities in your project.
+
+You’ll find clear instructions and code samples designed to seamlessly fit into your existing GORM workflows.
+
+---
+
+## Related Documentation
+
+- [What is Hints for GORM?](/overview/introduction-and-value/what-is-hints) — Understand the fundamental capabilities and value proposition.
+- [Quick Feature Overview](/overview/introduction-and-value/quick-feature-overview) — See the full range of supported hints and examples.
+- [Core Concepts and Terminology](/overview/core-concepts-and-architecture/domain-terminology) — Get up to speed on the key concepts behind hint placement and behavior.
+
+
+---
+
+## Summary
+This page empowers GORM developers who seek advanced query control through SQL hints to precisely tune performance and manage indexes. By understanding whether your use cases align with performance tuning, index control, or comment-driven SQL management, you can decide confidently to add GORM Hints to your toolkit.
+
+
+---
+
+## Glossary
+
+| Term              | Definition                                             |
+|-------------------|--------------------------------------------------------|
+| Optimizer Hints   | SQL instructions to influence query planner decisions  |
+| Index Hints       | Hints directing the selection, force, or ignore indexes|
+| SQL Comments      | Non-executed annotations embedded in SQL queries       |
+
+
+---
+
+Thank you for choosing GORM Hints to power your SQL performance edge.
+
+
+---
+
+# Troubleshooting Common Pitfalls
+
+<AccordionGroup title="Potential Challenges and Solutions">
+<Accordion title="Queries Not Using Desired Index">
+Sometimes the database may ignore hints due to constraints or syntax issues. Ensure:
+
+- The hint syntax matches your database dialect.
+- The targeted index actually exists and is applicable.
+- No conflicting hints negate the effect.
+
+Test with dry runs or explain plans to verify impact.
+</Accordion>
+<Accordion title="Performance Regressions After Adding Hints">
+Hints can sometimes degrade performance if the data distribution changes or the hint forces a less efficient plan. Regularly monitor your queries post-hint deployment and be ready to revert or adjust.
+</Accordion>
+<Accordion title="Confusing Hint Placement in Complex Queries">
+Remember that hints can be injected at different SQL clause points (before SELECT, after FROM, etc.). Use the appropriate constructor (`New`, `CommentBefore`, `CommentAfter`, `UseIndex`, etc.) to ensure the hint lands where it matters.
+</Accordion>
+</AccordionGroup>  
