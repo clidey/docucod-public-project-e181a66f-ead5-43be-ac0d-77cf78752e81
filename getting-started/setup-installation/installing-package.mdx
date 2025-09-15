@@ -1,0 +1,169 @@
+---
+title: "Installing GORM Hints"
+description: "Step-by-step instructions to install the GORM Hints package via Go modules, ensuring it is properly added as a project dependency across all major platforms."
+---
+
+# Installing GORM Hints
+
+This guide provides clear, step-by-step instructions to install the **GORM Hints** package using Go modules. The instructions ensure that the package is correctly added as a dependency for your Go project, compatible across all major platforms.
+
+---
+
+## 1. Prerequisites
+
+Before installing GORM Hints, verify you meet the following requirements:
+
+- **Go version:** 1.18 or higher
+- **GORM version:** 1.24.0 or higher
+- **Environment:** A working Go development environment with module support enabled
+
+If you need help verifying your setup, refer to the [Prerequisites documentation](/getting-started/setup-installation/prerequisites).
+
+<Tip>
+Using Go modules is the recommended way to manage dependencies. Ensure your project has a valid `go.mod` file by running `go mod init <module-name>` if you haven't already.
+</Tip>
+
+---
+
+## 2. Installing the Package
+
+Follow these steps to add the GORM Hints package to your project using Go modules.
+
+<Steps>
+<Step title="Add the GORM Hints Module">
+
+Open a terminal and navigate to your project root directory.
+
+Run the following command:
+
+```bash
+go get -u gorm.io/hints
+```
+
+This command downloads the latest release of the GORM Hints package and adds it to your `go.mod` dependencies.
+
+</Step>
+<Step title="Verify the Dependency">
+
+Confirm the package is listed in your `go.mod` file by opening the file and checking for:
+
+```go
+require gorm.io/hints vX.Y.Z // indirect
+```
+
+where `vX.Y.Z` is the installed version.
+
+</Step>
+<Step title="Update Modules">
+
+To ensure all related dependencies are properly downloaded and synchronized, run:
+
+```bash
+go mod tidy
+```
+
+This cleans up unused dependencies and ensures all required modules are present.
+
+</Step>
+</Steps>
+
+---
+
+## 3. Verifying Installation
+
+After installation, perform a quick verification to confirm the package is ready to use.
+
+1. In your Go source file, import the package:
+
+```go
+import "gorm.io/hints"
+```
+
+2. Run a basic build or test (e.g., `go build` or `go test`) to ensure no import errors occur.
+
+3. Optionally, you can run a simple query with a hint clause to verify integration, such as:
+
+```go
+DB.Clauses(hints.New("MAX_EXECUTION_TIME(100)")).Find(&User{})
+```
+
+If the build succeeds without errors, the installation was successful.
+
+<Note>
+For detailed validation steps and troubleshooting, see the [Validating Installation guide](/getting-started/setup-installation/integration-check).
+</Note>
+
+---
+
+## 4. Platform Considerations
+
+The installation via Go modules works uniformly across Windows, macOS, and Linux provided Go is correctly installed and configured.
+
+If you encounter platform-specific issues:
+
+- Confirm your Go version with `go version`.
+- Check if your `GOPATH` and environment variables are properly set.
+- Ensure network access to `proxy.golang.org` or your custom Go module proxy to download dependencies.
+
+<Tip>
+Using a consistent Go module proxy and caching dependencies locally accelerates installation and avoids intermittent network failures.
+</Tip>
+
+---
+
+## 5. Next Steps
+
+Once the package is installed:
+
+- Proceed to the [Configuring Your Project](/getting-started/first-steps/configuration-basics) to learn how to configure GORM Hints in your code.
+- Explore the [Your First Query with Hints](/getting-started/first-steps/first-hint-query) page for step-by-step usage examples.
+
+
+---
+
+## Troubleshooting Installation
+
+<AccordionGroup title="Common Issues and Solutions">
+<Accordion title="Go Version Not Supported">
+
+Ensure you are running Go 1.18 or later by executing:
+
+```bash
+go version
+```
+
+If your version is older, please upgrade Go to meet the minimum requirement.
+
+</Accordion>
+<Accordion title="Module Not Found or Network Errors">
+
+If `go get` fails with network errors:
+
+- Check your internet connection.
+- Confirm firewall or proxy settings allow Go module downloads.
+- Try setting the environment variable `GOPROXY=https://proxy.golang.org`.
+
+</Accordion>
+<Accordion title="Import Errors in Code">
+
+If your IDE or build tool cannot resolve `gorm.io/hints`:
+
+- Run `go mod tidy` again to fetch missing dependencies.
+- Restart your IDE to refresh module cache.
+- Verify your project is within a valid Go module (has `go.mod`).
+
+</Accordion>
+</AccordionGroup>
+
+---
+
+By following these instructions precisely, you will integrate the GORM Hints package smoothly into your Go projects, unlocking powerful SQL hinting capabilities with GORM.
+
+
+---
+
+## Reference
+
+- GORM Hints GitHub repository: [https://github.com/go-gorm/hints](https://github.com/go-gorm/hints)
+- Go Modules official docs: https://go.dev/ref/mod
+

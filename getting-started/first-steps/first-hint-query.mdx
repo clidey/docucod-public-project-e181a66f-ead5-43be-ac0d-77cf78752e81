@@ -1,0 +1,277 @@
+---
+title: "Your First Query with Hints"
+description: "Walks through a practical example of enhancing a GORM query using optimizer, index, or comment hints, illustrating the added value and expected SQL output."
+---
+
+# Your First Query with Hints
+
+This guide walks you through a practical example of enhancing a GORM query using the Hints extension. You'll learn how to apply optimizer hints, index hints, and comment hints to your SQL queries, see the impact on generated SQL, and understand the value each hint adds for improving query performance and readability.
+
+---
+
+## 1. Prerequisites
+
+Before continuing, ensure you have completed the following:
+
+- Installed GORM Hints in your Go project ([see Installing GORM Hints](/getting-started/setup-installation/installing-package)).
+- Basic familiarity with GORM query syntax.
+- Go 1.18+ and GORM 1.24.0+ configured.
+- Your project correctly imports the `gorm.io/hints` package:
+
+```go
+import "gorm.io/hints"
+```
+
+If these are not done, refer back to the [Prerequisites](/getting-started/setup-installation/prerequisites) and [Configuring Your Project](/getting-started/first-steps/configuration-basics) pages.
+
+---
+
+## 2. Enhancing Queries with Hints: Step-by-Step
+
+You will enhance a simple `SELECT` query with three categories of hints:
+
+- **Optimizer Hint**: Influences SQL optimizer behavior.
+- **Index Hint**: Advises the database on indexes to use or ignore.
+- **Comment Hint**: Adds custom comments to your SQL for traceability or metadata.
+
+### Step 2.1: Preparing Your Model
+
+We use a simple `User` model for demo:
+
+```go
+type User struct {
+    ID   uint
+    Name string
+}
+```
+
+### Step 2.2: Executing a Basic Query
+
+This is the baseline query:
+
+```go
+result := DB.Find(&User{})
+// Generates: SELECT * FROM `users`
+```
+
+### Step 2.3: Applying an Optimizer Hint
+
+Use `hints.New()` to add an optimizer hint immediately after the `SELECT` keyword.
+
+```go
+result := DB.Clauses(hints.New("MAX_EXECUTION_TIME(100)")).Find(&User{})
+// Generates: SELECT /*+ MAX_EXECUTION_TIME(100) */ * FROM `users`
+```
+
+- **What it does:** Adds a MySQL optimizer hint to limit query execution time.
+- **Value:** Helps protect your application from long-running queries.
+
+### Step 2.4: Using Index Hints to Guide Index Selection
+
+Example of advising the query to use a specific index:
+
+```go
+result := DB.Clauses(hints.UseIndex("idx_user_name")).Find(&User{})
+// Generates: SELECT * FROM `users` USE INDEX (`idx_user_name`)
+```
+
+#### Advanced index hints example:
+
+Force the use of indexes and specify index application scope:
+
+```go
+result := DB.Clauses(
+    hints.ForceIndex("idx_user_name", "idx_user_id").ForJoin(),
+    hints.IgnoreIndex("idx_user_name").ForGroupBy(),
+).Find(&User{})
+// Generates: SELECT * FROM `users` FORCE INDEX FOR JOIN (`idx_user_name`,`idx_user_id`) IGNORE INDEX FOR GROUP BY (`idx_user_name`)
+```
+
+- **What it does:** Tells the database which indexes to force or ignore, tuning join and group operations.
+- **Value:** Provides granular control over index usage, improving query performance.
+
+### Step 2.5: Adding Comment Hints for Metadata or Tracing
+
+Add comments at various locations in the query:
+
+```go
+// Comment appearing immediately after SELECT
+result := DB.Clauses(hints.Comment("select", "replica-node") ).Find(&User{})
+// SELECT /* replica-node */ * FROM `users`
+
+// Comment appearing before the query
+result = DB.Clauses(hints.CommentBefore("select", "audit-log") ).Find(&User{})
+// /* audit-log */ SELECT * FROM `users`
+
+// Comment after WHERE clause
+result = DB.Clauses(hints.CommentAfter("where", "filtered") ).Find(&User{}, "name = ?", "jinzhu")
+// SELECT * FROM `users` WHERE name = ? /* filtered */
+```
+
+- **What it does:** Inserts custom comments into SQL.
+- **Value:** Useful for logging, debugging, or passing custom trace information.
+
+---
+
+## 3. Expected SQL Output Examples
+
+| Example                        | Generated SQL                                                      |
+|-------------------------------|------------------------------------------------------------------|
+| Optimizer hint                 | `SELECT /*+ MAX_EXECUTION_TIME(100) */ * FROM `users``            |
+| Index hint (USE INDEX)         | `SELECT * FROM `users` USE INDEX (`idx_user_name`)`               |
+| Combined index hints           | `SELECT * FROM `users` FORCE INDEX FOR JOIN (`idx_user_name`)...`|
+| Comment after SELECT           | `SELECT /* replica-node */ * FROM `users``                        |
+| Comment before SELECT          | `/* audit-log */ SELECT * FROM `users``                           |
+| Comment after WHERE            | `SELECT * FROM `users` WHERE name = ? /* filtered */`             |
+
+---
+
+## 4. Integrating Multiple Hints
+
+You can combine several hints in a single query to finely tune your SQL, for example:
+
+```go
+result := DB.Clauses(
+    hints.New("MAX_EXECUTION_TIME(100)"),
+    hints.UseIndex("idx_user_name"),
+    hints.CommentAfter("select", "trace-id:12345"),
+).Find(&User{})
+
+// Expected SQL:
+// SELECT /*+ MAX_EXECUTION_TIME(100) */ * /* trace-id:12345 */ FROM `users` USE INDEX (`idx_user_name`)
+```
+
+This flexibility allows you to optimize performance and maintain rich context in your queries.
+
+---
+
+## 5. Troubleshooting Common Issues
+
+<AccordionGroup title="Troubleshooting Your First Queries with Hints">
+<Accordion title="Hint Not Appearing in Generated SQL">
+- Ensure you have imported the `hints` package correctly.
+- Confirm your GORM version is 1.24.0+.
+- Use GORM's DryRun mode to inspect SQL without executing.
+- Verify the clause targets (SELECT, UPDATE) apply to your query type.
+</Accordion>
+
+<Accordion title="Syntax Errors in Hints">
+- Use hints strings exactly as accepted by your database's SQL dialect.
+- Wrap string literals and identifiers in hints appropriately.
+- Check that indexes specified exist in the database.
+</Accordion>
+
+<Accordion title="Multiple Hints Overlapping or Conflicting">
+- Combine hints of the same type carefully; they are concatenated with spaces.
+- Use distinct methods like `ForJoin()`, `ForGroupBy()` to scope index hints.
+- Review generated SQL via DryRun to ensure correctness.
+</Accordion>
+</AccordionGroup>
+
+---
+
+## 6. Next Steps & Resources
+
+- Try enhancing your `UPDATE` and `DELETE` queries with optimizer and index hints.
+- Explore the [Core Hint Clauses API Reference](/api-reference/core-hint-clauses/optimizer-hints) to learn all available hint options.
+- Review the [Chaining and Combining Hints](/api-reference/advanced-usage-and-integration/chaining-and-combining-hints) documentation for advanced usage patterns.
+- Validate your setup using the [Validating Installation](/getting-started/setup-installation/integration-check) guide.
+- Reach out to the [Troubleshooting](/getting-started/first-steps/troubleshooting) page when encountering problems.
+
+---
+
+## Summary Diagram: Hint Injection Flow
+
+```mermaid
+flowchart TD
+  subgraph "User GORM Query"
+    UserQuery["User Query Using GORM"]
+  end
+
+  subgraph "Hint Clauses Processing"
+    ClauseOptimHint["Optimizer Hint Clause"]
+    ClauseIndexHint["Index Hint Clause"]
+    ClauseCommentHint["Comment Hint Clause"]
+  end
+
+  subgraph "SQL Generation"
+    SQLBuilder["SQL Builder"]
+    GeneratedSQL["Final SQL with Hints"]
+  end
+
+  UserQuery -->|Adds clauses: New(), UseIndex(), Comment()| ClauseOptimHint & ClauseIndexHint & ClauseCommentHint
+  ClauseOptimHint --> SQLBuilder
+  ClauseIndexHint --> SQLBuilder
+  ClauseCommentHint --> SQLBuilder
+  SQLBuilder --> GeneratedSQL
+
+  style UserQuery fill:#4a90e2,stroke:#333,stroke-width:1px,color:#fff
+  style ClauseOptimHint fill:#50e3c2,stroke:#333,stroke-width:1px
+  style ClauseIndexHint fill:#50e3c2,stroke:#333,stroke-width:1px
+  style ClauseCommentHint fill:#50e3c2,stroke:#333,stroke-width:1px
+  style SQLBuilder fill:#f5a623,stroke:#333,stroke-width:1px
+  style GeneratedSQL fill:#7ed321,stroke:#333,stroke-width:1px,color:#fff
+```
+
+This diagram illustrates how your GORM query integrates the hints clauses before final SQL generation.
+
+---
+
+## Code Snippet Summary
+
+```go
+// Model definition
+ type User struct {
+    ID   uint
+    Name string
+ }
+
+// Basic query
+DB.Find(&User{})
+
+// Optimizer Hint
+DB.Clauses(hints.New("MAX_EXECUTION_TIME(100)")).Find(&User{})
+
+// Index Hint
+DB.Clauses(hints.UseIndex("idx_user_name")).Find(&User{})
+
+// Combined Index Hints
+DB.Clauses(
+    hints.ForceIndex("idx_user_name", "idx_user_id").ForJoin(),
+    hints.IgnoreIndex("idx_user_name").ForGroupBy(),
+).Find(&User{})
+
+// Comment Hints
+DB.Clauses(hints.Comment("select", "trace-id:12345")).Find(&User{})
+DB.Clauses(hints.CommentBefore("select", "audit-log")).Find(&User{})
+DB.Clauses(hints.CommentAfter("where", "filtered")).Find(&User{}, "name = ?", "jinzhu")
+
+// Combining hints
+DB.Clauses(
+    hints.New("MAX_EXECUTION_TIME(100)"),
+    hints.UseIndex("idx_user_name"),
+    hints.CommentAfter("select", "trace-id:12345"),
+).Find(&User{})
+```
+
+---
+
+## Additional Tips
+
+<Tip>
+Use GORM's DryRun mode during development to preview generated SQL queries with hints without executing them, helping you iterate quickly and debug hint placements.
+</Tip>
+
+<Tip>
+When applying index hints, ensure the specified index names exist in your database schema to avoid unexpected query failures.
+</Tip>
+
+<Tip>
+Leverage comment hints for complex environments where tracking query execution paths or annotating SQL for logging is beneficial.
+</Tip>
+
+---
+
+For more foundational knowledge and extended usage, explore the [Overview and Core Concepts](/overview/core-concepts-and-architecture/integration-model) documentation.
+
+

@@ -1,0 +1,142 @@
+---
+title: "Quick Feature Overview"
+description: "Presents a summary of Hints' three main capabilities: Optimizer Hints, Index Hints, and Comment Hints, each with a practical focus. This orients users to the scope of the product's offerings and key benefits."
+---
+
+# Quick Feature Overview
+
+Get a concise yet powerful introduction to the three core capabilities that make Hints for GORM an essential tool for developers seeking to optimize their SQL queries: **Optimizer Hints**, **Index Hints**, and **Comment Hints**. This page lays out the practical value of each feature and how you can leverage them to gain enhanced control over your database interactions.
+
+---
+
+## Unlocking the Power of Hints in GORM
+
+When working with GORM, you often want to guide the database engine on how to execute your queries optimally or convey additional contextual information. Hints for GORM lets you do exactly that—inject custom hints *directly* into your SQL statements without rewriting or compromising your ORM logic.
+
+These hints fall into three practical categories, each catering to a specific optimization or annotation need:
+
+- **Optimizer Hints:** Influence execution plans at the optimizer level
+- **Index Hints:** Specify preferred indexes for query operations
+- **Comment Hints:** Annotate queries with meaningful comments
+
+This trio covers the majority of real-world SQL customization scenarios you’ll face.
+
+---
+
+## Feature Breakdown
+
+### 1. Optimizer Hints
+
+Optimizer Hints allow you to embed directives that shape how the database query optimizer plans execution. These are subtle yet powerful cues that tell the database to behave in specific ways, supercharging performance tuning.
+
+**How it works:**
+
+```go
+import "gorm.io/hints"
+
+DB.Clauses(hints.New("MAX_EXECUTION_TIME(100)")).Find(&User{})
+// Generates SQL with optimizer hint as: SELECT /*+ MAX_EXECUTION_TIME(100) */ * FROM `users`
+```
+
+**User Benefit:**
+- Direct control over query plans without changing schema or indexes
+- Fine-tune expensive queries to run within specific time thresholds or other optimizer parameters
+
+### 2. Index Hints
+
+Index Hints grant you precise authority over which indexes the database should utilize — or not utilize — when searching or joining tables. This control can drastically improve query speed, especially on complex or large datasets.
+
+**Types of Index Hints Supported:**
+- `USE INDEX` — Suggest which indexes to use
+- `FORCE INDEX` — Enforce specific indexes with contexts (FOR JOIN, FOR ORDER BY, FOR GROUP BY)
+- `IGNORE INDEX` — Instruct to avoid certain indexes
+
+**Example Usage:**
+
+```go
+DB.Clauses(hints.UseIndex("idx_user_name")).Find(&User{})
+// Produces: SELECT * FROM `users` USE INDEX (`idx_user_name`)
+
+DB.Clauses(hints.ForceIndex("idx_user_name", "idx_user_id").ForJoin()).Find(&User{})
+// Produces: SELECT * FROM `users` FORCE INDEX FOR JOIN (`idx_user_name`,`idx_user_id`)
+```
+
+**User Benefit:**
+- Target the indexes that best fit your query patterns
+- Override database default choices for more predictable performance
+- Optimize multi-join scenarios by carefully selecting indexes
+
+### 3. Comment Hints
+
+Comment Hints let you add contextual comments to your SQL queries. These comments can be used for debugging, routing, auditing, or integration with external SQL tools that parse comments.
+
+You can position comments at various points in the query such as before the main clause, after the main clause, or following conditions for maximum flexibility.
+
+**Example Usage:**
+
+```go
+DB.Clauses(hints.Comment("select", "master")).Find(&User{})
+// SQL: SELECT /* master */ * FROM `users`
+
+DB.Clauses(hints.CommentBefore("insert", "node2")).Create(&user)
+// SQL: /* node2 */ INSERT INTO `users` ...
+
+DB.Clauses(hints.CommentAfter("where", "hint")).Find(&User{}, "id = ?", 1)
+// SQL: SELECT * FROM `users` WHERE id = ? /* hint */
+```
+
+**User Benefit:**
+- Embed clarifying notes visible in database logs and monitoring tools
+- Support advanced use cases like query routing, cluster targeting, or debugging without changing query structure
+
+---
+
+## Why These Features Matter
+
+### Real-World Impact
+- **Performance Tuning Mastery:** With optimizer and index hints, unlock dramatic improvements in query speed, lowering load and response times.
+- **Enhanced Debugging & Maintenance:** Comments increase query traceability, making it easier to diagnose and audit database activity.
+- **Fine-Grained Control:** Skip the one-size-fits-all trap of automated query optimizations by tailoring each query’s execution plan.
+
+### Before and After
+| Scenario                           | Without Hints                         | With Hints                              |
+|----------------------------------|------------------------------------|----------------------------------------|
+| Slow join on a large table        | Database chooses generic execution | Use `FORCE INDEX FOR JOIN` to speed up join operations |
+| Monitoring cluster query routing  | No visibility or control            | Add comments to determine routing and identify sources |
+| Long-running queries              | Unpredictable execution times       | Use optimizer hints to limit max execution time         |
+
+---
+
+## Getting Started Preview
+
+Diving into Hints for GORM is straightforward:
+
+1. **Setup & Installation:** Install the `gorm.io/hints` package.
+2. **Basic Usage:** Start by adding a simple optimizer or index hint to a query.
+3. **Explore Commenting:** Add comments to queries to understand contextual annotations.
+
+For detailed, step-by-step instructions, visit the [Getting Started](../getting-started) section.
+
+---
+
+## Summary
+Harnessing Optimizer, Index, and Comment Hints allows GORM users to achieve advanced SQL query customization effortlessly. Each feature brings targeted improvements—performance tuning, index usage control, and query clarity—that combine to make database interactions more efficient and maintainable.
+
+Explore each feature’s dedicated documentation to deepen your mastery:
+- [Optimizer Hints](../api-reference/core-hint-clauses/optimizer-hints)
+- [Index Hints](../api-reference/core-hint-clauses/index-hints)
+- [Comment Hints](../api-reference/core-hint-clauses/comment-hints)
+
+This overview equips you with the foundational knowledge to leverage Hints effectively, ensuring your queries perform at their best and remain transparent to your team and tooling.
+
+---
+
+## Additional Tips
+
+- Use index hints primarily when you have concrete knowledge that the database’s automatic selection is suboptimal.
+- Combine hints carefully; Chaining multiple hints is possible but requires understanding of their interaction—refer to the [Chaining and Combining Hints](../api-reference/advanced-usage-and-integration/chaining-and-combining-hints) documentation.
+- Always test queries after adding hints to validate they bring the expected performance benefits.
+
+<Tip>
+Ensure your database supports the specific hints syntax you intend to use, as hint syntax and effectiveness vary across database systems.
+</Tip>

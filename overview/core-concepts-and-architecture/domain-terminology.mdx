@@ -1,0 +1,199 @@
+---
+title: "Core Concepts and Terminology"
+description: "Defines key terms such as Optimizer Hint, Index Hint, Comment Hint, Clause, and how these concepts map to SQL and GORM. Clarifies foundational vocabulary for new users."
+---
+
+# Core Concepts and Terminology
+
+Understanding the foundational vocabulary of GORM Hints empowers you to use its features effectively and communicate precision when optimizing SQL query generation. This page defines the key terms you will encounter while working with this extension and clarifies how these concepts map to both GORM's abstractions and the underlying SQL syntax.
+
+---
+
+## Essential Terms Defined
+
+### Optimizer Hint
+Optimizer hints are special directives embedded within SQL queries that guide the database query planner's decisions on how to execute a query. These hints influence aspects such as join order, execution strategy, or resource limits without changing the query results.
+
+In GORM Hints, *Optimizer Hints* are represented by clauses injected directly after the SQL `SELECT` or `UPDATE` keywords, formatted like this:
+
+```sql
+SELECT /*+ hint_contents */ * FROM users
+```
+
+**Example:**
+```go
+DB.Clauses(hints.New("MAX_EXECUTION_TIME(100)")).Find(&User{})
+// Produces: SELECT /*+ MAX_EXECUTION_TIME(100) */ * FROM `users`
+```
+
+---
+
+### Index Hint
+Index hints instruct the database on which indexes to consider, use, or ignore during query execution. They provide fine-grained control over index selection, which can crucially improve performance by enabling or restricting access to specific indexes.
+
+Types of index hints include `USE INDEX`, `FORCE INDEX`, and `IGNORE INDEX`. Additionally, they can be scoped for operations such as joins, ordering, or grouping.
+
+Example representation in SQL:
+
+```sql
+SELECT * FROM users USE INDEX (`user_name_idx`)
+```
+
+Using GORM Hints:
+
+```go
+DB.Clauses(hints.UseIndex("user_name_idx")).Find(&User{})
+// Produces: SELECT * FROM `users` USE INDEX (`user_name_idx`)
+```
+
+Index hints can be further qualified:
+
+```go
+hints.ForceIndex("idx1", "idx2").ForJoin()
+// Adds FORCE INDEX FOR JOIN (`idx1`, `idx2`)
+```
+
+---
+
+### Comment Hint
+Comment hints are standard SQL comments inserted before, after, or inside specific parts of a query to document, tag, or annotate the SQL for traceability, debugging, or runtime behavior awareness injected by middleware or proxy layers.
+
+Unlike optimizer and index hints, comment hints are purely informational and do not influence execution plans.
+
+You can control comment placement relative to clauses in the SQL query:
+
+- Before a clause
+- After a clause
+- Inline within a clause
+
+Example:
+
+```go
+DB.Clauses(hints.CommentBefore("select", "node2")).Find(&User{})
+// Produces: /* node2 */ SELECT * FROM `users`
+
+DB.Clauses(hints.CommentAfter("where", "filter applied")).Find(&User{}, "id = ?", 1)
+// Produces: SELECT * FROM `users` WHERE id = ? /* filter applied */
+```
+
+---
+
+### Clause
+In GORM and SQL, a *clause* is a structural keyword or segment of a query such as `SELECT`, `WHERE`, `FROM`, `UPDATE`, or `JOIN`. Clauses organize the query logically and determine its semantics.
+
+GORM Hints associates optimizer, index, or comment hints with specific clauses to ensure hints appear at the correct location in the final SQL.
+
+For example:
+
+| Clause | Where hint appears |
+|---------|--------------------|
+| SELECT  | After `SELECT` keyword |
+| UPDATE  | After `UPDATE` keyword |
+| WHERE   | After the `WHERE` condition |
+| INSERT  | Before `INSERT` statement |
+
+This mapping allows precise control over where a hint or comment is injected.
+
+---
+
+### Relationship of Concepts in Query Generation
+
+GORM Hints implements these concepts via `Clauses` that modify SQL building instructions precisely where and how hints appear:
+
+- **Optimizer hints** use a special comment syntax starting with `/*+` immediately following `SELECT` or `UPDATE`.
+- **Index hints** attach immediately after the table name in `FROM` or `UPDATE` clauses.
+- **Comment hints** wrap arbitrary SQL comments placed before, after, or within clauses.
+
+This separation maintains SQL correctness, while giving developers powerful tools to guide database behavior.
+
+---
+
+## Practical Understanding: How Concepts Work Together
+
+When crafting a query, you often want to both *force a specific index* and *add an optimizer hint* alongside a *trace comment*. GORM Hints lets you chain these directives cleanly:
+
+```go
+DB.Clauses(
+    hints.New("MAX_EXECUTION_TIME(100)"),
+    hints.ForceIndex("idx_user_name").ForJoin(),
+    hints.Comment("select", "trace=xyz")
+).Find(&User{})
+// Produces:
+// SELECT /*+ MAX_EXECUTION_TIME(100) */ * FROM `users` FORCE INDEX FOR JOIN (`idx_user_name`) /* trace=xyz */
+```
+
+Here:
+- The optimizer hint guides the DB optimizer.
+- The index hint controls index selection for joins.
+- The comment adds an informational tag.
+
+Each maps to a specific clause and position in the SQL.
+
+---
+
+## How This Fits Into GORM’s Query Builder
+
+GORM’s query building flow composes SQL from multiple clauses, where each clause may have expressions, transformations, or modifiers.
+
+The Hints extension inserts its custom expressions at the right injection points within these clauses during SQL generation.
+
+**User-Centric Value:**
+
+- Precise placement of hints avoids malformed SQL.
+- Users gain fine control without altering their base GORM queries extensively.
+- The ability to combine hints smoothly helps optimize complex queries.
+
+---
+
+## Terms Quick Reference Table
+
+| Term           | Description                                               | Typical Placement in SQL                         |
+|----------------|-----------------------------------------------------------|-------------------------------------------------|
+| Optimizer Hint | Special comment guiding DB optimizer (`/*+ hint */`)      | Immediately after SELECT or UPDATE keywords      |
+| Index Hint     | Directives like USE/FORCE/IGNORE INDEX controlling indexes | After table name in FROM or UPDATE clause       |
+| Comment Hint   | SQL comment for annotation and traceability               | Before/after/in clause segment as specified     |
+| Clause         | Structural part of SQL query (SELECT, WHERE, FROM, etc.)  | N/A                                             |
+
+---
+
+## Summary
+
+This page establishes the vital vocabulary needed to effectively use GORM Hints. By clarifying the role and placement of optimizer hints, index hints, comment hints, and their connection to SQL clauses, you are equipped to optimize your queries confidently and precisely.
+
+For practical examples, advanced usage, and API references, explore related pages:
+
+- [What is Hints for GORM?](/overview/introduction-and-value/what-is-hints)
+- [Quick Feature Overview](/overview/introduction-and-value/quick-feature-overview)
+- [Optimizer Hints API Reference](/api-reference/core-hint-clauses/optimizer-hints)
+- [Index Hints API Reference](/api-reference/core-hint-clauses/index-hints)
+
+---
+
+## Mermaid Diagram: Conceptual Flow of Hints Injection
+```mermaid
+flowchart TD
+    A[User Builds Query with GORM Hints] --> B[Parse Clauses in Query Builder]
+    B --> C{Clause Type}
+    C -->|SELECT or UPDATE| D[Insert Optimizer Hints (/*+ hint */)]
+    C -->|FROM or UPDATE| E[Insert Index Hints (USE/FORCE/IGNORE INDEX)]
+    C -->|Any Clause| F[Insert Comment Hints (/* comment */)]
+    D & E & F --> G[Generate Final SQL String]
+    G --> H[Execute Optimized SQL Query]
+
+    style A fill:#f9f,stroke:#333,stroke-width:2px
+    style H fill:#aff,stroke:#333,stroke-width:2px
+    classDef decision fill:#bbf,stroke:#333,stroke-width:2px
+    class C decision
+```
+
+This diagram illustrates how hints are categorized and placed within the SQL query construction stages by GORM Hints.
+
+---
+
+<Tip>
+Remember: The key to successful optimization using hints lies in understanding where each hint applies within the SQL query. This page gives you that foundational clarity to start leveraging hints effectively.
+</Tip>
+
+<Check>
+For detailed syntax and usage examples, consult the API Reference sections on optimizer, index, and comment hints.
+</Check>

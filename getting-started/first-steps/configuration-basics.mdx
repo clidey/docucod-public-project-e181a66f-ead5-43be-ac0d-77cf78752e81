@@ -1,0 +1,176 @@
+---
+title: "Configuring Your Project"
+description: "Details how to import and set up the hints extension within a GORM-based project, including necessary code imports and usage patterns to enable hint support."
+---
+
+# Configuring Your Project
+
+This guide walks you through the essential steps to import, set up, and configure the GORM Hints extension within your Go project that uses GORM. You will learn how to prepare your project to leverage SQL optimizer hints, index hints, and comment hints seamlessly in your GORM queries.
+
+---
+
+## 1. Importing the Hints Package
+
+Before using any hints, you must import the `hints` package into your Go source file where your GORM DB instance is configured or used.
+
+```go
+import (
+	"gorm.io/gorm"
+	"gorm.io/hints"
+)
+```
+
+Ensure your project module includes the hints extension installed via Go modules (see the Installation guide).
+
+---
+
+## 2. Basic Setup
+
+The hints extension works as a GORM clause modifier. Once imported, you do not need to perform explicit initialization. Instead, you apply hints directly in your GORM queries using the `Clauses()` method.
+
+For example, to add an optimizer hint:
+
+```go
+// Inject an optimizer hint in a SELECT query
+result := DB.Clauses(hints.New("MAX_EXECUTION_TIME(100)")).Find(&users)
+```
+
+This automatically injects `/*+ MAX_EXECUTION_TIME(100) */` within the SQL generated.
+
+
+---
+
+## 3. Recommended Usage Patterns
+
+### Using Optimizer Hints
+
+Use the helper function `hints.New(content string)` to create optimizer hints. These apply to SELECT and UPDATE SQL clauses by default.
+
+```go
+DB.Clauses(hints.New("NO_INDEX_MERGE")).Find(&orders)
+```
+
+### Using Index Hints
+
+For index-related hinting such as `USE INDEX`, `FORCE INDEX`, and `IGNORE INDEX`, use the provided functions:
+
+- `hints.UseIndex(names ...string) IndexHint`
+- `hints.ForceIndex(names ...string) IndexHint`
+- `hints.IgnoreIndex(names ...string) IndexHint`
+
+Each can be further refined using methods to specify targets, such as `ForJoin()`, `ForOrderBy()`, and `ForGroupBy()`.
+
+Example:
+
+```go
+// Force Index for Join clause
+DB.Clauses(hints.ForceIndex("idx_user_name").ForJoin()).Find(&users)
+```
+
+### Adding Comments
+
+To add SQL comments at specific SQL clause positions, use the comment helpers:
+
+- `hints.Comment(clause string, comment string) Hints` (default inline after clause name)
+- `hints.CommentBefore(clause string, comment string) Hints` (before the clause)
+- `hints.CommentAfter(clause string, comment string) Hints` (after the clause)
+
+Example:
+
+```go
+// Adds a comment after SELECT
+DB.Clauses(hints.Comment("select", "read_from_master")).Find(&users)
+
+// Adds a comment before INSERT
+DB.Clauses(hints.CommentBefore("insert", "node2")).Create(&user)
+```
+
+
+---
+
+## 4. Putting It All Together: Sample Configuration Snippet
+
+Below is a minimal example showing project setup and usage of hints in queries:
+
+```go
+package main
+
+import (
+	"fmt"
+	"gorm.io/driver/sqlite"
+	"gorm.io/gorm"
+	"gorm.io/hints"
+)
+
+type User struct {
+	ID uint
+	Name string
+}
+
+func main() {
+	db, err := gorm.Open(sqlite.Open(":memory:"), &gorm.Config{})
+	if err != nil {
+		panic(err)
+	}
+
+	// Create table
+	db.AutoMigrate(&User{})
+
+	// Sample optimizer hint usage
+	var users []User
+	db.Clauses(hints.New("MAX_EXECUTION_TIME(100)")).Find(&users)
+
+	// Sample index hint
+	db.Clauses(hints.UseIndex("idx_name")).Where("name = ?", "jinzhu").Find(&users)
+
+	// Sample comment hint
+	db.Clauses(hints.Comment("select", "read_from_master")).Find(&users)
+
+	fmt.Println("Configuration and sample queries executed.")
+}
+```
+
+
+---
+
+## 5. Practical Tips & Best Practices
+
+- **Apply hints only when necessary.** Overusing hints can lead to suboptimal planner decisions.
+- **Keep your GORM and Go versions compatible** with the hints extension (see Prerequisites).
+- Use **dry run mode** in GORM (`DryRun: true`) to verify the generated SQL includes your hints before applying them.
+- Combine multiple hints by passing multiple clauses inside `.Clauses()`.
+
+---
+
+## 6. Troubleshooting
+
+<AccordionGroup title="Common Issues and Solutions">
+<Accordion title="Hints Not Being Injected in SQL">
+- Ensure you import the `hints` package correctly.
+- Confirm you are applying `.Clauses()` on a valid `*gorm.DB` instance.
+- Check the clause target in your hint matches the SQL operation (SELECT, UPDATE, etc.).
+</Accordion>
+<Accordion title="Index Hints Not Appearing in Joins">
+- Use index hints with `ForJoin()` modifier when targeting join optimization.
+- Validate the index names correspond exactly with your database indexes.
+</Accordion>
+<Accordion title="Unexpected SQL Syntax Errors After Adding Hints">
+- Verify your hint syntax string matches the expected SQL hint syntax.
+- Avoid unsupported or malformed hint expressions.
+</Accordion>
+</AccordionGroup>
+
+---
+
+## 7. Next Steps
+
+- After configuring your project, see [Your First Query with Hints](../first-steps/first-hint-query) for hands-on examples.
+- Consult [Troubleshooting Common Setup Issues](../first-steps/troubleshooting) if you encounter integration problems.
+- Explore the API reference pages:
+  - [Optimizer Hints](../../api-reference/core-hint-clauses/optimizer-hints)
+  - [Index Hints](../../api-reference/core-hint-clauses/index-hints)
+  - [Comment Hints](../../api-reference/core-hint-clauses/comment-hints)
+
+---
+
+For full source and advanced scenarios, visit the [GORM Hints GitHub repository](https://github.com/go-gorm/hints).

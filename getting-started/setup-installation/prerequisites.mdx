@@ -1,0 +1,125 @@
+---
+title: "Prerequisites"
+description: "Understand the required Go and GORM versions, and confirm your environment is prepared to use the hints extension. This foundation prevents common issues later in the setup process."
+---
+
+# Prerequisites for Using GORM Hints
+
+Before integrating the GORM Hints extension into your Go project, it is crucial to ensure your development environment meets all necessary requirements. Proper preparation prevents common setup issues and ensures a smooth experience when injecting SQL hints into your GORM queries.
+
+---
+
+## 1. Go Environment Requirements
+
+- **Go Version:** Ensure you are running Go 1.18 or higher. GORM Hints leverages Go modules and generics features that require this minimum version.
+
+- **Go Modules Enabled:** Your project must use Go modules (`go.mod`) for dependency management. This is standard for modern Go projects and simplifies version control of GORM and hints packages.
+
+---
+
+## 2. GORM Version Compatibility
+
+- **GORM Version:** The Hints extension is designed to work with **GORM v1.24.0 or above**.
+
+- **Import Path for GORM:** Make sure you are importing GORM with the official module path: `gorm.io/gorm`
+
+- **Version Check:** You can verify your GORM version by inspecting your `go.mod` or by running:
+  ```bash
+  go list -m all | grep gorm
+  ```
+
+<Check>
+Ensuring GORM is up to date avoids compatibility issues with clause modification mechanisms used by Hints.
+</Check>
+
+---
+
+## 3. Additional Dependencies
+
+- **Hints Package:** The Hints extension itself is imported from `gorm.io/hints`.
+
+- This package depends on your project being set up with GORM already installed.
+
+- The package includes support for optimizer hints, index hints, and comment hints seamlessly integrated into GORM's clause system.
+
+---
+
+## 4. Development Environment Setup
+
+- **IDE or Editor:** Use an IDE with Go support (like GoLand, VSCode with Go extension) that can resolve modules and provide code completion for GORM and Hints.
+
+- **Internet Access:** Required to fetch dependencies during `go get` or `go mod tidy`.
+
+- **Database Access:** Although not strictly a prerequisite, having a running instance of your target SQL database (MySQL, Postgres, etc.) is recommended to test queries involving hints.
+
+---
+
+## 5. Network and Permission Considerations
+
+- Ensure your development machine can access the online module proxy (e.g., `proxy.golang.org`) or your chosen source of Go modules.
+
+- Your project should have the necessary permissions to download and install Go packages.
+
+---
+
+## 6. Validating Your Environment
+
+After verifying these prerequisites, you can run a simple test to confirm that you can import GORM and the Hints extension without errors.
+
+Example minimal test file:
+
+```go
+package main
+
+import (
+  "fmt"
+  "gorm.io/gorm"
+  "gorm.io/hints"
+)
+
+func main() {
+  // Dummy usage
+  hint := hints.New("MAX_EXECUTION_TIME(1000)")
+  fmt.Println(hint)
+  var db *gorm.DB // assume this is properly initialized
+  _ = db
+}
+```
+
+Run `go build` or `go mod tidy` to verify that all imports resolve correctly.
+
+---
+
+## Troubleshooting Common Prerequisite Issues
+
+<AccordionGroup title="Common Environment Setup Issues">
+<Accordion title="Go Version Too Low or Not Found">
+Ensure Go 1.18+ is installed and your `PATH` includes the `go` binary. Run `go version` to confirm.
+</Accordion>
+<Accordion title="GORM Version Mismatch">
+If GORM is older than v1.24.0, update it using `go get gorm.io/gorm@latest` or specify the version in `go.mod`.
+</Accordion>
+<Accordion title="Module Not Found or Fails to Download">
+Check your internet connectivity and proxy settings. Run `go env GOPROXY` to verify module sources.
+</Accordion>
+</AccordionGroup>
+
+---
+
+## Next Steps
+
+Once your environment satisfies all prerequisites:
+
+- Proceed to [Installing GORM Hints](/getting-started/setup-installation/installing-package) to add the hints extension to your project.
+- Review [Configuring Your Project](/getting-started/first-steps/configuration-basics) to set up hint usage and customize.
+
+---
+
+## Additional Resources
+
+- [GORM Official Documentation](https://gorm.io/index.html)
+- [Hints GitHub Repository](https://github.com/go-gorm/hints)
+
+---
+
+By establishing this foundation, you're ready to fully leverage the power of SQL hints embedded through GORM Hints to optimize your database queries with precision and confidence.

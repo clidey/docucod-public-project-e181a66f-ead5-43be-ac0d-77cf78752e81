@@ -1,0 +1,255 @@
+---
+title: "Chaining and Combining Hints"
+description: "Delivers advanced patterns for composing multiple hints, controlling their order, and integrating hints with complex GORM query chains. Covers nuances when combining index, optimizer, and comment hints for robust, high-performance queries."
+---
+
+# Chaining and Combining Hints
+
+Advanced patterns for composing multiple SQL hints within GORM queries empower you to precisely control execution plans, index utilization, and query annotation. This page unlocks nuanced techniques to chain, combine, and integrate optimizer, index, and comment hints across complex GORM query chains for robust, high-performance SQL generation.
+
+---
+
+## Introduction
+
+When developing applications with GORM, you sometimes need to fine-tune your SQL queries to achieve optimal performance or compatibility with your database engine. GORM Hints enable you to inject specialized SQL hints such as optimizer directives, index usage, and comments.
+
+While single hints bring value on their own, real-world scenarios often require combining multiple hints or layering them across different parts of the SQL statement. This page guides you through best practices and actionable techniques for chaining and combining these hints seamlessly.
+
+---
+
+## How Hint Chaining Works in GORM
+
+GORM applies hints using its clause system, enabling multiple hints to be attached to different SQL clauses and positions:
+
+- **Optimizer Hints** are generally injected inside the `SELECT` or `UPDATE` clause as directives.
+- **Index Hints** are injected after the table name or join expressions in the `FROM` or `UPDATE` clauses.
+- **Comment Hints** can be positioned before, after, or inline with a specific SQL clause like `SELECT` or `WHERE`.
+
+The GORM Hints implementation allows combining these independently via the `.Clauses()` method, which accepts multiple hints as arguments. Behind the scenes, these hints are merged intelligently into the various parts of the SQL syntax.
+
+---
+
+## Basic Chaining Example
+
+You can pass multiple hint clauses in a single `.Clauses()` call. Each hint type targets different SQL injection points but will compose correctly in the generated SQL.
+
+```go
+import "gorm.io/hints"
+
+result := DB.Clauses(
+  hints.New("MAX_EXECUTION_TIME(100)"),           // Optimizer hint
+  hints.UseIndex("idx_user_name"),                // Index hint
+  hints.CommentAfter("where", "custom comment"), // Comment hint
+).Find(&User{})
+
+// Resulting SQL:
+// SELECT /*+ MAX_EXECUTION_TIME(100) */ * FROM `users` USE INDEX (`idx_user_name`) WHERE ... /* custom comment */
+```
+
+This example demonstrates layering multiple hints that apply at different SQL locations into a single query call, enhancing control and traceability.
+
+---
+
+## Controlling Hint Order and Position
+
+### 1. Positioning Comment Hints
+
+Comment hints can be injected at three positions relative to a clause:
+
+- **Inline (default)**: Inside the clause's name, e.g., `SELECT /* comment */`
+- **Before**: Prepend the clause, e.g., `/* comment */ SELECT`
+- **After**: Append after the clause contents, e.g., `SELECT ... /* comment */`
+
+Use the corresponding APIs:
+
+```go
+hints.Comment("select", "inline comment")        // Inline
+hints.CommentBefore("select", "before comment") // Before
+hints.CommentAfter("select", "after comment")   // After
+```
+
+This flexible control lets you align hints with SQL dialect requirements or database optimizer behaviors.
+
+### 2. Combining Multiple Comments
+
+Multiple comment hints targeting the same clause merge intelligently, separating contents with spaces.
+
+```go
+DB.Clauses(
+  hints.CommentBefore("select", "node1"),
+  hints.CommentBefore("select", "node2"),
+).Find(&User{})
+
+// Produces:
+// /*node1 node2*/ SELECT * FROM `users`
+```
+
+### 3. Combining Index Hints with Modifiers
+
+Index hints support chainable modifiers to control scope:
+
+- `ForJoin()`: Applies hint for JOIN operations only
+- `ForOrderBy()`: For ORDER BY clause
+- `ForGroupBy()`: For GROUP BY clause
+
+For example:
+
+```go
+DB.Clauses(
+  hints.ForceIndex("idx_name").ForJoin(),
+  hints.IgnoreIndex("idx_age").ForGroupBy(),
+).Find(&User{})
+
+// Produces:
+// SELECT * FROM `users` FORCE INDEX FOR JOIN (`idx_name`) IGNORE INDEX FOR GROUP BY (`idx_age`)
+```
+
+This precision enables targeted optimization without unintended side-effects.
+
+---
+
+## Advanced Use Cases
+
+### Chaining Across Multiple Queries
+
+You can re-use and chain hints dynamically across query stages, such as building a base query and layering additional hints later.
+
+```go
+optimizerHint := hints.New("MAX_EXECUTION_TIME(500)")
+indexHint := hints.UseIndex("idx_created_at")
+
+baseQuery := DB.Model(&User{}).Clauses(optimizerHint)
+updatedQuery := baseQuery.Clauses(indexHint).Where("active = ?", true)
+
+updatedQuery.Find(&User{})
+
+// Result:
+// SELECT /*+ MAX_EXECUTION_TIME(500) */ * FROM `users` USE INDEX (`idx_created_at`) WHERE active = true
+```
+
+This approach facilitates modular query construction where hints can be combined or overridden per context.
+
+### Combining Hints with Joins
+
+When using joins, index hints can be applied to specific tables via GORM's joining mechanism, allowing granular index control per table:
+
+```go
+DB.Clauses(hints.ForceIndex("idx_user_name")).Joins("Company").Find(&User2{})
+
+// Result:
+// SELECT ... FROM `user2` FORCE INDEX (`idx_user_name`) LEFT JOIN `companies` `Company` ON ...
+```
+
+This lets you enforce index usage on the primary table even when joining related entities.
+
+---
+
+## Practical Tips & Best Practices
+
+- **Test using DryRun Mode**: Before deploying queries with combined hints, enable GORM's DryRun mode (`gorm.Config{DryRun: true}`) to inspect generated SQL and verify hint placement without affecting the database.
+- **Avoid Hint Duplication**: Combining hints of the same type in close succession merges content but may produce redundant directives. Confirm logical necessity before combining.
+- **Use Specific Index Hint Scopes**: Always specify `.ForJoin()`, `.ForOrderBy()`, or `.ForGroupBy()` to limit index hints precisely. Omitting these defaults to broader application which can lead to optimizer confusion.
+- **Position Comments Appropriately**: Use `CommentBefore` or `CommentAfter` if your database requires comments outside standard clause boundaries.
+
+---
+
+## Common Pitfalls and Troubleshooting
+
+<AccordionGroup title="Common Issues When Combining Hints">
+<Accordion title="Hints Not Appearing in Expected Location">
+Verify that you use the correct clause names (`select`, `update`, `where`, etc.) in comment APIs and use the appropriate API variant for placement (`CommentBefore`, `CommentAfter`).
+</Accordion>
+<Accordion title="Conflicting Hints Overwriting Each Other">
+Hints of the same type attached to the same clause merge rather than overwrite. However, mixing `.Clauses()` calls with overlapping hints in different query parts may produce unexpected SQL. Consolidate hints where possible.
+</Accordion>
+<Accordion title="Index Hint Not Applying on Join">
+Ensure `.ForJoin()` modifier is defined when the index hint applies to join clause indexes. Without it, some database engines ignore the hint.
+</Accordion>
+</AccordionGroup>
+
+---
+
+## API Usage Summary
+
+| Hint Type       | Creation Function                 | Position Control                             | Notes                              |
+|-----------------|---------------------------------|----------------------------------------------|-----------------------------------|
+| Optimizer Hint  | `hints.New(content string)`       | N/A (applies to SELECT/UPDATE clauses)      | Merges multiple optimizer hints on the same clauses |
+| Index Hint      | `hints.UseIndex/names...`, `ForceIndex`, `IgnoreIndex` | `.ForJoin()`, `.ForOrderBy()`, `.ForGroupBy()` modifiers | Applies index hints to FROM/UPDATE clauses |
+| Comment Hint    | `hints.Comment`, `CommentBefore`, `CommentAfter`      | Controls relative position to named clause | Supports multiple comments chaining |
+
+---
+
+## Illustrative Mermaid Diagram
+
+```mermaid
+flowchart TD
+
+  subgraph User Query Flow
+    A[Start Query with GORM] --> B[Attach Clauses (Hints)]
+    B --> C[Compose SELECT clause]
+    B --> D[Compose FROM clause]
+    B --> E[Compose WHERE clause]
+    C --> F[Inject Optimizer & Comment Hints]
+    D --> G[Inject Index Hints & Comment Hints]
+    E --> H[Inject Comment Hints]
+    F & G & H --> I[Build Final SQL]
+  end
+
+  I --> J[Execute SQL on DB]
+
+  classDef hintClass fill:#f9f,stroke:#333,stroke-width:2px;
+  B,F,G,H class hintClass;
+```
+
+This flow visualizes how hints weave into the GORM SQL clause construction pipeline across various parts of a query.
+
+---
+
+## Next Steps
+
+- Explore **[Optimizer Hints](/api-reference/core-hint-clauses/optimizer-hints)** for foundational usage.
+- Master **[Index Hints](/api-reference/core-hint-clauses/index-hints)** for precise index control.
+- Learn **[Comment Hints](/api-reference/core-hint-clauses/comment-hints)** to annotate and influence SQL.
+- Review **[Error Handling & Best Practices](/api-reference/advanced-usage-and-integration/error-handling-and-best-practices)** to avoid common pitfalls.
+
+Utilize DryRun mode early in development to validate combined hints without impacting production data.
+
+---
+
+## Code Example: Combining Multiple Hints in a Complex Query
+
+```go
+import (
+  "gorm.io/gorm"
+  "gorm.io/hints"
+)
+
+type User struct {
+  ID   uint
+  Name string
+}
+
+func PerformQuery(DB *gorm.DB) {
+  result := DB.Clauses(
+    hints.New("MAX_EXECUTION_TIME(100)"), // Optimizer hint
+    hints.UseIndex("idx_user_name"),     // Index hint
+    hints.CommentBefore("select", "node1"),
+    hints.CommentAfter("where", "custom filter comment"),
+  ).Where("name = ?", "jinzhu").Find(&User{})
+
+  // Generated SQL:
+  // /*node1*/ SELECT /*+ MAX_EXECUTION_TIME(100) */ * FROM `users` USE INDEX (`idx_user_name`) WHERE name = ? /* custom filter comment */
+
+  if result.Error != nil {
+    // Handle error
+  }
+}
+```
+
+Harness this pattern to craft readable, maintainable, and optimally tailored queries with combined hints.
+
+---
+
+<Info>
+Combining hints empowers you to harness the best of SQL query optimization while maintaining GORM's expressive and composable API. This page equips you with practical techniques to master hint composition and apply advanced tuning confidently.
+</Info>

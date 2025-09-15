@@ -1,0 +1,232 @@
+---
+title: "Optimizer Hints"
+description: "Reference guide to adding general optimizer hints to SQL queries via the `hints.New()` function. Covers syntax, supported parameters, integration with GORM's Clauses API, and practical examples to influence query planning and tuning."
+---
+
+# Optimizer Hints
+
+Enhance your SQL query performance by injecting custom optimizer hints directly into your GORM queries using the `hints.New()` function. This page serves as a comprehensive reference guide to adding general optimizer hints—special instructions interpreted by the database engine to influence the query planner and optimizer.
+
+---
+
+## Overview
+
+Optimizer hints allow developers to guide the database engine on how to execute queries more efficiently by providing directives about query planning without changing the SQL semantics. Using GORM Hints, you can seamlessly embed these hints into your GORM-powered queries, enabling advanced tuning and precise control over query execution.
+
+The `hints.New()` function wraps your custom hint as an optimizer hint comment and integrates it smoothly with GORM’s Clauses API.
+
+---
+
+## Understanding `hints.New()`
+
+This function creates an optimizer hint wrapped in the comment format supported by most SQL databases (e.g., MySQL's `/*+ ... */` syntax). These hints get injected into `SELECT` and `UPDATE` clauses.
+
+### Signature
+
+```go
+func New(content string) Hints
+```
+
+- **content**: The hint string you want to embed (e.g., `MAX_EXECUTION_TIME(100)`).
+- Returns a `Hints` object representing the optimizer hint comment.
+
+---
+
+## How to Use Optimizer Hints in GORM Queries
+
+### Basic Optimizer Hint Injection
+
+Embed an optimizer hint into your query by passing `hints.New()` to the `.Clauses()` method.
+
+```go
+import "gorm.io/hints"
+
+// Add a simple optimizer hint
+db.Clauses(hints.New("MAX_EXECUTION_TIME(100)")).Find(&users)
+// Resulting SQL:
+// SELECT /*+ MAX_EXECUTION_TIME(100) */ * FROM `users`
+```
+
+This injects the optimizer hint inside the SELECT clause comment.
+
+### Chaining Multiple Optimizer Hints
+
+You can combine multiple hints in one clause by passing merged `Hints` or chaining multiple hints in the `.Clauses()` method.
+
+```go
+// Combine multiple hints
+db.Clauses(
+    hints.New("MAX_EXECUTION_TIME(100)"),
+    hints.New("USE_INDEX(t1, idx1)")
+).Find(&users)
+
+// Resulting SQL:
+// SELECT /*+ MAX_EXECUTION_TIME(100) USE_INDEX(t1, idx1) */ * FROM `users`
+```
+
+### Using Optimizer Hints with Updates
+
+Optimizer hints are supported in `UPDATE` statements as well.
+
+```go
+// Add optimizer hint to UPDATE
+db.Clauses(hints.New("MAX_EXECUTION_TIME(100)")).Model(&User{}).Where("name = ?", "jinzhu").Update("name", "jinzhu")
+
+// Resulting SQL:
+// UPDATE /*+ MAX_EXECUTION_TIME(100) */ `users` SET `name`=? WHERE name = ?
+```
+
+---
+
+## Supported Parameters and Behavior
+
+- The parameter to `hints.New()` must be a valid optimizer hint expression supported by your database.
+  - Examples: `MAX_EXECUTION_TIME(100)`, `NO_INDEX_MERGE()`, etc.
+  - The Hints package does not validate the hint syntax; database compatibility is your responsibility.
+
+- The hints appear as SQL comments with the format:
+
+  ```sql
+  /*+ <content> */
+  ```
+
+- `hints.New()` by default targets the `SELECT` and `UPDATE` clauses.
+
+- Internally, hints are injected into the clause’s comment expression where they are parsed as a contiguous string.
+
+---
+
+## Integration With GORM's Clauses API
+
+### Placement in SQL
+
+Optimizer hints inserted via `hints.New()` are positioned right after the SQL command—for example, immediately following `SELECT` or `UPDATE` keywords:
+
+```sql
+SELECT /*+ hint content */ * FROM `table`
+UPDATE /*+ hint content */ `table` SET ...
+```
+
+This ensures your hints are respected by the database optimizer without changing the query logic.
+
+### Example with `.Clauses()`
+
+```go
+result := db.Clauses(hints.New("MAX_EXECUTION_TIME(100)")).Find(&User{})
+```
+
+### Combining Optimizer Hints with Other Hints
+
+Optimizer hints can coexist with index hints or comment hints using multiple `.Clauses()` calls.
+
+```go
+result := db.Clauses(
+  hints.New("MAX_EXECUTION_TIME(100)"),
+  hints.UseIndex("user_name"),
+  hints.Comment("select", "custom comment"),
+).Find(&User{})
+
+// Resulting SQL:
+// SELECT /*+ MAX_EXECUTION_TIME(100) */ * FROM `users` USE INDEX (`user_name`) /*custom comment*/
+```
+
+---
+
+## Practical Examples
+
+### Example 1: Adding a Simple Optimizer Hint
+
+```go
+// Inject optimizer hint to reduce execution time
+users := []User{}
+db.Clauses(hints.New("MAX_EXECUTION_TIME(200)")).Find(&users)
+```
+
+### Example 2: Multiple Hints for Fine-Grained Control
+
+```go
+db.Clauses(
+  hints.New("MAX_EXECUTION_TIME(100) NO_INDEX_MERGE()"),
+  hints.CommentAfter("where", "filtered on user id"),
+).Where("id = ?", 123).Find(&User{})
+
+// Resulting SQL:
+// SELECT /*+ MAX_EXECUTION_TIME(100) NO_INDEX_MERGE() */ * FROM `users` WHERE id = ? /* filtered on user id */
+```
+
+### Example 3: Applying Optimizer Hint to an UPDATE Query
+
+```go
+// Ensure update query executes with optimizer hint
+db.Clauses(hints.New("MAX_EXECUTION_TIME(50)")).Model(&User{}).Where("name = ?", "jinzhu").Update("name", "jinzhu")
+```
+
+---
+
+## Best Practices
+
+- **Validate Hint Syntax:** Because `hints.New()` accepts any string, make sure the hint syntax is correct and supported by your target database.
+
+- **Use DryRun Mode During Development:** Verify generated SQL by enabling `DryRun` mode in GORM to confirm hints are inserted correctly.
+
+- **Combine Intelligently:** When combining multiple hints, merge them in one `hints.New()` content string or chain multiple `.Clauses()` calls.
+
+- **Keep Hints Relevant:** Applying irrelevant or incorrect hints could degrade performance or cause database errors.
+
+- **Target Suitable Clauses:** `hints.New()` by default targets `SELECT` and `UPDATE` clauses, matching where optimizer hints apply.
+
+---
+
+## Troubleshooting
+
+### Hint Not Appearing in Generated SQL
+
+- Ensure you are passing `hints.New()` to `.Clauses()` on the GORM query.
+- Check if DryRun or `Debug()` mode is enabled to inspect the generated SQL.
+- Confirm the hint clause affects your database dialect.
+
+### Conflicting or Ignored Hints
+
+- If multiple hints conflict, the database may ignore some; rewrite hints carefully or combine logically.
+- Review your database’s documentation on acceptable optimizer hints.
+
+### Updates Seem Unaffected by Hints
+
+- Make sure you add hints before `.Update()`, `.Updates()`, or `.Save()` calls to apply them.
+
+---
+
+## Summary
+
+The `hints.New()` API enables injecting low-level optimizer hints embedded in SQL comments, fully integrated with GORM’s query-building pipeline. This empowers developers to fine-tune database query execution by guiding query planners with precision.
+
+Use this feature to improve performance, reduce execution time, avoid undesired index scans, or enforce specific optimizer behaviors.
+
+---
+
+For further details on related hint types, such as index hinting or comment hinting, see the following references:
+
+- [Index Hints Reference](./index-hints)
+- [Comment Hints Reference](./comment-hints)
+- [Chaining and Combining Hints](../advanced-usage-and-integration/chaining-and-combining-hints)
+
+Explore practical setup and usage examples in the [Getting Started](../../getting-started) section, and verify your installation with the [Integration Check](../../getting-started/setup-installation/integration-check) guide.
+
+
+---
+
+<CardGroup cols={2}>
+<Card title="Example: Adding a Simple Optimizer Hint">
+```go
+import "gorm.io/hints"
+result := db.Clauses(hints.New("MAX_EXECUTION_TIME(100)")).Find(&User{})
+// SQL: SELECT /*+ MAX_EXECUTION_TIME(100) */ * FROM `users`
+```
+</Card>
+<Card title="Example: Updating With Optimizer Hint">
+```go
+db.Clauses(hints.New("MAX_EXECUTION_TIME(50)")).Model(&User{}).Where("name = ?", "jinzhu").Update("name", "jinzhu")
+// SQL: UPDATE /*+ MAX_EXECUTION_TIME(50) */ `users` SET `name`=? WHERE name = ?
+```
+</Card>
+</CardGroup>

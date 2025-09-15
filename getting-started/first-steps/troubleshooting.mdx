@@ -1,0 +1,307 @@
+---
+title: "Troubleshooting Common Setup Issues"
+description: "Addresses frequent obstacles encountered during installation and first use, such as module import errors or unexpected query outputs, with actionable solutions."
+---
+
+# Troubleshooting Common Setup Issues
+
+This guide addresses frequent obstacles encountered during installing and first using the GORM Hints extension. It provides clear, actionable solutions to common problems such as module import errors, unexpected SQL outputs, or improper hint application.
+
+---
+
+## 1. Common Installation & Import Errors
+
+### Issue: Cannot Find Package `gorm.io/hints`
+
+**Symptoms:**
+- Compilation fails with "cannot find package" error
+- IDE reports unresolved import path
+
+**Cause:**
+- Module not added correctly
+- Go modules not updated
+
+**Solution:**
+
+<Steps>
+<Step title="Verify Go Modules Setup">
+Ensure your Go project is initialized with modules (`go.mod` file present).
+Run:
+```bash
+go mod init your-module-name
+```
+</Step>
+<Step title="Add GORM Hints Package">
+Run the following to add the hints package:
+```bash
+go get gorm.io/hints
+```
+</Step>
+<Step title="Download Dependencies">
+Update dependencies:
+```bash
+go mod tidy
+```
+</Step>
+<Step title="Check Import Statement">
+Confirm your source imports the package correctly:
+```go
+import "gorm.io/hints"
+```
+</Step>
+<Step title="Rebuild Project">
+Try building again.
+```bash
+go build
+```
+</Step>
+</Steps>
+
+<Warning>
+If you use a private repository or custom proxy, ensure your `GOPROXY` environment variable is set correctly.
+</Warning>
+
+---
+
+## 2. Unexpected or Missing SQL Hint Injection
+
+### Issue: SQL Query Does Not Include Expected Hints
+
+**Symptoms:**
+- Your query outputs do not contain optimizer, index, or comment hints as expected
+
+**Cause:**
+- Hints not configured or injected properly using `.Clauses()`
+- Wrong position or syntax for hints
+- Using DryRun mode but overlooking the difference in output
+
+**Solution:**
+
+<Steps>
+<Step title="Confirm Hints Usage in Code">
+Verify your GORM query uses `.Clauses()` with hints correctly: 
+```go
+DB.Clauses(hints.New("MAX_EXECUTION_TIME(100)")).Find(&User{})
+```
+</Step>
+<Step title="Validate Clause Types">
+Use proper hint types according to your need:
+- `hints.New("...")` for optimizer hints
+- `hints.UseIndex(...)`, `hints.ForceIndex(...)` for index hints
+- `hints.Comment(...)` or `CommentBefore/After(...)` for comments
+</Step>
+<Step title="Check Placement of Comment Hints">
+Use `CommentBefore` or `CommentAfter` modifiers to place comments exactly where needed (before SELECT, after WHERE, etc.)
+</Step>
+<Step title="Verify SQL Output Using DryRun">
+Run your query in DryRun mode to inspect generated SQL without executing:
+```go
+DB.Config.DryRun = true
+result := DB.Clauses(hints.New("hint")).Find(&User{})
+fmt.Println(result.Statement.SQL.String())
+```
+</Step>
+<Step title="Update to Latest Version">
+Ensure you have the latest release of the hints package, as improvements and fixes are frequent.
+```bash
+go get -u gorm.io/hints
+```
+</Step>
+</Steps>
+
+<Note>
+Remember that hints are injected as SQL comments or specific clauses in your query string; confirm your SQL client or logger displays full query text.
+</Note>
+
+---
+
+## 3. Errors When Applying Hints on Complex Queries or Joins
+
+### Issue: Hints Not Appearing or Causing SQL Syntax Problems When Used With Joins
+
+**Symptoms:**
+- No hints injected in joined queries
+- SQL syntax errors in query output with hints
+
+**Cause:**
+- Specific handling is needed when applying index hints on joined tables
+- Hints should be associated correctly with the relevant clauses
+
+**Solution:**
+
+<Steps>
+<Step title="Use Appropriate Index Hint Methods">
+For join scenarios, use `ForceIndex(...).ForJoin()` to target index hints correctly:
+```go
+DB.Clauses(hints.ForceIndex("idx_user_name").ForJoin()).Joins("Company").Find(&User2{})
+```
+</Step>
+<Step title="Review Generated SQL">
+Use DryRun and print SQL to check that hints are injected in the correct location:
+```go
+stmt := DB.Session(&gorm.Session{DryRun: true}).Clauses(hints.ForceIndex("idx_user_name").ForJoin()).Joins("Company").Find(&User2{})
+fmt.Println(stmt.Statement.SQL.String())
+```
+</Step>
+<Step title="Update GORM and Hints Version">
+The integration with joins can change; keep GORM and the hints extension updated.
+</Step>
+</Steps>
+
+---
+
+## 4. Module Version Compatibility Issues
+
+### Issue: Version Conflicts Leading to Compilation or Unexpected Behavior
+
+**Symptoms:**
+- Errors referencing incompatible GORM or Go versions
+- Unexpected behavior with hints application
+
+**Cause:**
+- Using unsupported versions of Go or GORM
+- Mismatched package versions
+
+**Solution:**
+
+<Steps>
+<Step title="Check Prerequisites">
+Confirm your environment meets the minimum requirements:
+- Go version >= 1.18
+- GORM version >= v1.24.0
+</Step>
+<Step title="Set Dependency Versions Explicitly">
+Use `go.mod` to set compatible versions:
+```bash
+go get gorm.io/gorm@v1.24.0
+go get gorm.io/hints@latest
+```
+</Step>
+<Step title="Run `go mod tidy` to Clean Modules">
+Maintain tidy modules ensuring no version conflicts.
+</Step>
+</Steps>
+
+<Note>
+Refer to the [Prerequisites documentation](../setup-installation/prerequisites) for full system and environment requirements.
+</Note>
+
+---
+
+## 5. Build or Runtime Errors Related to Statement Modifications
+
+### Issue: Panics or Errors When Hints Try to Modify SQL Statements
+
+**Symptoms:**
+- Panics related to nil pointers or unexpected states during query building
+
+**Cause:**
+- Improper use of clauses
+- Incompatible GORM versions or misuse of internal APIs
+
+**Solution:**
+
+<Steps>
+<Step title="Use Public API Only">
+Stick to the documented public API such as `hints.New()`, `hints.UseIndex()`, and `.Clauses()` integration.
+</Step>
+<Step title="Update Packages to Compatible Versions">
+Ensure GORM and hints extension are compatible and recent.
+</Step>
+<Step title="Check for Missing Statement Preparation">
+Always ensure your statements are properly prepared by running through GORM's API side, not manipulating SQL strings manually.
+</Step>
+</Steps>
+
+<Warning>
+Avoid modifying the generated SQL or statement objects directly outside of the hints API to prevent unstable states.
+</Warning>
+
+---
+
+## 6. When You Need Further Support
+
+If the above solutions do not resolve your issues:
+
+- Review the [Validating Installation Guide](../setup-installation/integration-check) to confirm correct setup.
+- Consult detailed [Configuration Basics](../first-steps/configuration-basics) to ensure your project is properly configured.
+- Explore usage examples in [Your First Query with Hints](../first-steps/first-hint-query).
+- Visit the official [GORM Hints GitHub repository](https://github.com/go-gorm/hints) for source code, updates, and issue tracking.
+
+<Info>
+Before opening new issues, verify your problem is not already addressed in the project's GitHub issues or discussions.
+</Info>
+
+---
+
+## Summary Table of Common Problems and Solutions
+
+| Issue Description                          | Quick Fix                                         | Reference Link                            |
+|--------------------------------------------|-------------------------------------------------|--------------------------------------------|
+| Package import errors                       | `go get gorm.io/hints` + `go mod tidy`           | [Installing GORM Hints](/getting-started/setup-installation/installing-package) |
+| Missing hints in SQL                        | Use `.Clauses(hints.New("...")).Find(...)`      | [First Hint Query](/getting-started/first-steps/first-hint-query)             |
+| No hints in joins                          | Use `.Clauses(hints.ForceIndex(...).ForJoin())`  | [Core Concepts: Integration Model](/overview/core-concepts-and-architecture/integration-model) |
+| Version mismatch errors                     | Update Go & GORM versions, enforce versions in go.mod | [Prerequisites](/getting-started/setup-installation/prerequisites)             |
+| Runtime panics during statement modification | Avoid unsafe API usage; keep all packages updated | [Advanced Usage & Integration](/api-reference/advanced-usage-and-integration/error-handling-and-best-practices)   |
+
+---
+
+For optimal onboarding and stable development, follow the Getting Started sequence closely.
+
+---
+
+## Code Example: Checking SQL Output with Hint
+
+```go
+package main
+
+import (
+	"fmt"
+	"gorm.io/driver/sqlite"
+	"gorm.io/gorm"
+	"gorm.io/hints"
+)
+
+type User struct {
+	ID   uint
+	Name string
+}
+
+func main() {
+	db, err := gorm.Open(sqlite.Open(":memory:"), &gorm.Config{
+		DryRun: true, // enable DryRun to inspect query
+	})
+	if err != nil {
+		panic(err)
+	}
+
+	result := db.Clauses(hints.New("MAX_EXECUTION_TIME(100)")).Find(&User{})
+	fmt.Println("Generated SQL:", result.Statement.SQL.String())
+}
+```
+
+Expected output:
+```
+Generated SQL: SELECT /*+ MAX_EXECUTION_TIME(100) */ * FROM `users`
+```
+
+---
+
+## Additional Tips
+
+- When writing your own SQL hints, start with small, incremental additions to observe their influence.
+- Use the DryRun mode extensively for development and debugging.
+- Always keep your Go environment, GORM, and hints package updated to leverage latest fixes.
+
+---
+
+For a deeper understanding, visit these complementary guides:
+- [Prerequisites](../setup-installation/prerequisites)
+- [Installing GORM Hints](../setup-installation/installing-package)
+- [Validating Installation](../setup-installation/integration-check)
+- [Configuration Basics](../first-steps/configuration-basics)
+- [Your First Query with Hints](../first-steps/first-hint-query)
+
+If difficulties persist, the [GORM Hints GitHub](https://github.com/go-gorm/hints) repository provides issue tracking and community support.
+
+---

@@ -1,0 +1,94 @@
+{
+  "background": {
+    "decoration": "gradient"
+  },
+  "colors": {
+    "dark": "#1E3A8A",
+    "light": "#60A5FA",
+    "primary": "#60A5FA"
+  },
+  "favicon": "/favicon.svg",
+  "fonts": {
+    "family": "Montserrat",
+    "format": "woff2",
+    "source": "https://fonts.gstatic.com/s/googlesansflex/v5/t5sJIQcYNIWbFgDgAAzZ34auoVyXkJCOvp3SFWJbN5hF8Ju1x6sKCyp0l9sI40swNJwGpVd4AZzz0v6lJ4qFXNZhGjLvDSkV4USKMo6qQzwliVdHAy9jxTDHg_ugnAakpwGc-cxgUqDCIUI.woff2"
+  },
+  "icons": {
+    "library": "fontawesome"
+  },
+  "logo": {
+    "dark": "./logo/logo.svg",
+    "light": "./logo/logo.svg"
+  },
+  "name": "GORM Hints",
+  "navigation": {
+    "tabs": [
+      {
+        "groups": [
+          {
+            "group": "Introduction and Value",
+            "pages": [
+              "overview/introduction-and-value/what-is-hints",
+              "overview/introduction-and-value/target-audience-and-use-cases",
+              "overview/introduction-and-value/quick-feature-overview"
+            ]
+          },
+          {
+            "group": "Core Concepts and Architecture",
+            "pages": [
+              "overview/core-concepts-and-architecture/domain-terminology",
+              "overview/core-concepts-and-architecture/system-architecture",
+              "overview/core-concepts-and-architecture/integration-model"
+            ]
+          }
+        ],
+        "tab": "Overview"
+      },
+      {
+        "groups": [
+          {
+            "group": "Setup \u0026 Installation",
+            "pages": [
+              "getting-started/setup-installation/prerequisites",
+              "getting-started/setup-installation/installing-package",
+              "getting-started/setup-installation/integration-check"
+            ]
+          },
+          {
+            "group": "First Steps with GORM Hints",
+            "pages": [
+              "getting-started/first-steps/configuration-basics",
+              "getting-started/first-steps/first-hint-query",
+              "getting-started/first-steps/troubleshooting"
+            ]
+          }
+        ],
+        "tab": "Getting Started"
+      },
+      {
+        "groups": [
+          {
+            "group": "Core Hint Clauses",
+            "pages": [
+              "api-reference/core-hint-clauses/optimizer-hints",
+              "api-reference/core-hint-clauses/index-hints",
+              "api-reference/core-hint-clauses/comment-hints"
+            ]
+          },
+          {
+            "group": "Advanced Usage \u0026 Integration",
+            "pages": [
+              "api-reference/advanced-usage-and-integration/chaining-and-combining-hints",
+              "api-reference/advanced-usage-and-integration/error-handling-and-best-practices"
+            ]
+          }
+        ],
+        "tab": "API Reference"
+      }
+    ]
+  },
+  "styling": {
+    "codeblocks": "dark",
+    "eyebrows": "breadcrumbs"
+  }
+}

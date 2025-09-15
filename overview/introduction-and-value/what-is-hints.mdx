@@ -1,0 +1,151 @@
+---
+title: "What is Hints for GORM?"
+description: "A concise explanation of the Hints extension, the value it adds for developers using GORM, and in which situations applying SQL hints is beneficial. Sets up the context for new users."
+---
+
+# What is Hints for GORM?
+
+## Unlocking Precise SQL Control for GORM Developers
+
+Hints for GORM is a lightweight extension that empowers developers to embed SQL hints directly into their GORM-powered queries. By seamlessly integrating hints—such as optimizer directives, index usage instructions, and custom comments—this extension provides fine-grained control over how SQL commands are executed by the database engine.
+
+### Why Use Hints for GORM?
+- **Optimize Query Performance:** Inject optimizer hints to guide the database query planner toward more efficient execution paths.
+- **Improve Index Utilization:** Explicitly specify which indexes to use, force, or ignore to enhance query speed.
+- **Add Contextual Comments:** Insert custom comments into SQL queries for debugging, auditing, or execution tracking.
+- **Flexible Application:** Apply hints at various stages of SQL statements (before, after clauses) to tailor behavior precisely.
+
+### Who Should Use This?
+Hints for GORM is perfect for developers who want to elevate the performance tuning of their GORM queries beyond default ORM optimization. This includes backend engineers, database administrators, and full-stack developers working with complex schemas or high-load environments where SQL execution efficiency is critical.
+
+---
+
+## Introducing the Hints Extension
+
+Hints for GORM is an extension package that extends GORM’s functionality by allowing developers to inject SQL hints effortlessly. These hints are special comments or directives understood by underlying databases like MySQL or PostgreSQL, which influence query execution strategies.
+
+### What Problems Does It Solve?
+By default, GORM generates standard SQL queries without any optimizer guidance. Sometimes, default execution plans may be suboptimal:
+
+- The database engine might choose inefficient indexes
+- Some joins or aggregations could be poorly executed
+- Developers cannot annotate queries with informational comments that survive to raw SQL
+
+Hints for GORM solves these by letting you embed:
+
+- **Optimizer hints** that nudge how queries get processed
+- **Index hints** to control index usage explicitly
+- **Custom comments** for adding query notes or debugging info
+
+### What Makes It Unique?
+- **GORM Native Integration:** Uses GORM's clause system for effortless clause chaining.
+- **Multi-Stage Hint Placement:** Supports injecting hints at select, insert, update, where, join, and other specific query parts.
+- **Chainable and Composable:** Multiple hints can be combined in one query without conflict.
+
+---
+
+## Core Features of Hints for GORM
+
+### 1. Optimizer Hints
+Inject directives that instruct the SQL optimizer how to plan query execution.
+```go
+DB.Clauses(hints.New("MAX_EXECUTION_TIME(100) USE_INDEX(t1, idx1)")).Find(&User{})
+// Produces: SELECT /*+ MAX_EXECUTION_TIME(100) USE_INDEX(t1, idx1) */ * FROM `users`
+```
+
+### 2. Index Hints
+Directly control index utilization with `USE INDEX`, `FORCE INDEX`, and `IGNORE INDEX` clauses.
+```go
+DB.Clauses(hints.UseIndex("user_name"), hints.ForceIndex("user_name", "user_id").ForJoin()).Find(&User{})
+// SELECT * FROM `users` USE INDEX (`user_name`) FORCE INDEX FOR JOIN (`user_name`,`user_id`)
+```
+
+### 3. Comment Hints
+Add custom comments at specific query points such as before select, after where clause, or before inserts.
+```go
+DB.Clauses(hints.Comment("select", "master"))
+// SELECT /* master */ * FROM `users`
+
+DB.Clauses(hints.CommentBefore("insert", "node2"))
+// /* node2 */ INSERT INTO `users` ...
+```
+
+### 4. Flexible Clause Targeting
+Hints can be positioned before a clause (`CommentBefore`), after a clause (`CommentAfter`), or embedded directly in the clause (`New`). This granularity lets you customize queries exactly where needed.
+
+### 5. Chain and Merge Hints
+Multiple hints can coexist within a single query. Adding multiple hint clauses merges them seamlessly without overwriting.
+
+---
+
+## Why Should You Care?
+
+### Drive Better Performance Outcomes
+Hinting your queries enables database engines to make smarter decisions about execution paths, reducing latency and improving throughput in demanding applications.
+
+### Gain Deep Query Insight
+Embedding comments helps in tracing query origins and debugging complex ORM-generated SQL.
+
+### Take Control Whenever You Need It
+GORM Hints let you override ORM defaults when performance demands or database-specific optimizations come into play, without abandoning GORM’s simple API.
+
+### Applicable Real-World Scenarios
+- Complex JOINs where index usage dramatically affects performance.
+- Queries hitting latency-sensitive endpoints requiring explicit execution time caps.
+- Multi-tenant environments where comments denote node affinity or routing hints.
+- Legacy databases that require forcing specific indexes due to outdated statistics.
+
+### Before & After
+Without hints, performance tuning with GORM means rewriting raw SQL or opaque trial-and-error. With Hints for GORM, you retain GORM’s idiomatic API yet inject expert-level hints effortlessly.
+
+---
+
+## Getting Started Preview
+
+### Quick Setup Overview
+Install the hints extension and start attaching hint clauses to your GORM queries using `DB.Clauses()`.
+
+### Basic Example
+```go
+import "gorm.io/hints"
+
+DB.Clauses(hints.New("MAX_EXECUTION_TIME(100) USE_INDEX(t1, idx1)")).Find(&User{})
+```
+
+### Prerequisites
+- Basic working knowledge of GORM and its querying interface
+- Database support for the hints you plan to use (check your database documentation for supported optimizer hints)
+
+### Next Steps
+Explore how to install and configure the hints package in your project, then try applying simple and combined hints to your queries for improved results.
+
+---
+
+## Additional Resources
+- [Target Audience and Use Cases](/overview/introduction-and-value/target-audience-and-use-cases)
+- [Quick Feature Overview](/overview/introduction-and-value/quick-feature-overview)
+- [Core Concepts and Terminology](/overview/core-concepts-and-architecture/domain-terminology)
+- [Integration with GORM](/overview/core-concepts-and-architecture/integration-model)
+
+
+---
+
+## Example Query SQL Transformations
+
+| GORM Query Snippet | Generated SQL | Description |
+|-|-|-|
+| `DB.Find(&User{})` | `SELECT * FROM `users`` | Standard query without hints |
+| `DB.Clauses(hints.New("hint")).Find(&User{})` | `SELECT /*+ hint */ * FROM `users`` | Add optimizer hint inside comment |
+| `DB.Clauses(hints.Comment("select", "hint")).Find(&User{})` | `SELECT /* hint */ * FROM `users`` | Add comment inside SELECT |
+| `DB.Clauses(hints.UseIndex("user_name")).Find(&User{})` | `SELECT * FROM `users` USE INDEX (`user_name`)` | Specify index usage |
+| `DB.Clauses(hints.ForceIndex("user_name").ForJoin()).Joins("Company").Find(&User2{})` | `SELECT ... FROM `user2` FORCE INDEX (`user_name`) LEFT JOIN ...` | Force index for join |
+
+---
+
+By using Hints for GORM, you gain access to the fine controls of SQL execution embedded within the familiar structure of GORM queries. This unlocks powerful performance tuning capabilities without sacrificing the elegance and simplicity of your Go application code.
+
+---
+
+For detailed installation and usage examples, visit the [Getting Started section](/getting-started/setup-installation/prerequisites).
+
+
